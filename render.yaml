@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: trabalho-programacao-agil1
+    env: node
+    rootDirectory: .
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s dist
+    envVars:
+      - key: NODE_VERSION
+        value: 18
