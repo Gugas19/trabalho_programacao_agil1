@@ -1,0 +1,743 @@
+{
+  "name": "Proposal Generator - Webhook to PDF Email",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": "{{CONNECTION.WEBHOOK}}",
+        "maxResults": 1
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        },
+        "restore": {},
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Customer Name",
+            "required": true
+          },
+          {
+            "name": "email",
+            "type": "email",
+            "label": "Customer Email",
+            "required": true
+          },
+          {
+            "name": "company",
+            "type": "text",
+            "label": "Company Name",
+            "required": true
+          },
+          {
+            "name": "phone",
+            "type": "text",
+            "label": "Phone Number",
+            "required": true
+          },
+          {
+            "name": "products",
+            "type": "array",
+            "label": "Selected Products",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "module": "google-sheets:getValues",
+      "version": 3,
+      "parameters": {},
+      "filter": {},
+      "mapper": {
+        "select": "map",
+        "from": "drive",
+        "sheetName": "Products",
+        "includesHeaders": true,
+        "valueRenderOption": "UNFORMATTED_VALUE",
+        "dateTimeRenderOption": "FORMATTED_STRING"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        },
+        "restore": {},
+        "expect": [
+          {
+            "name": "spreadsheetId",
+            "type": "text",
+            "label": "Spreadsheet ID",
+            "required": true
+          },
+          {
+            "name": "sheetName",
+            "type": "text",
+            "label": "Sheet Name",
+            "required": true
+          }
+        ],
+        "interface": [
+          {
+            "name": "__ROW__",
+            "type": "number",
+            "label": "Row number"
+          },
+          {
+            "name": "Product",
+            "type": "text",
+            "label": "Product"
+          },
+          {
+            "name": "Description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "Price",
+            "type": "number",
+            "label": "Price"
+          },
+          {
+            "name": "VAT",
+            "type": "number",
+            "label": "VAT %"
+          },
+          {
+            "name": "Currency",
+            "type": "text",
+            "label": "Currency"
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "builtin:BasicFeeder",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "array": "{{1.products}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "array": {
+              "mode": "edit"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "util:SetVariable2",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "productData",
+        "scope": "roundtrip",
+        "value": "{{get(filter(2.__BUNDLE__[]; Product; contains; 3); 1)}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0
+        },
+        "restore": {},
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Variable name",
+            "required": true
+          },
+          {
+            "name": "value",
+            "type": "any",
+            "label": "Variable value"
+          },
+          {
+            "name": "scope",
+            "type": "select",
+            "label": "Variable lifetime",
+            "required": true,
+            "validate": {
+              "enum": ["roundtrip", "execution"]
+            }
+          }
+        ],
+        "interface": [
+          {
+            "name": "productData",
+            "type": "any",
+            "label": "Product Data"
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "module": "util:SetVariable2",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "subtotal",
+        "scope": "roundtrip",
+        "value": "{{4.productData.Price}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 6,
+      "module": "util:SetVariable2",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "vatAmount",
+        "scope": "roundtrip",
+        "value": "{{5.subtotal * (4.productData.VAT / 100)}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 7,
+      "module": "util:SetVariable2",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "lineTotal",
+        "scope": "roundtrip",
+        "value": "{{5.subtotal + 6.vatAmount}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1800,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 8,
+      "module": "builtin:BasicAggregator",
+      "version": 1,
+      "parameters": {
+        "feeder": 3
+      },
+      "mapper": {
+        "productName": "{{4.productData.Product}}",
+        "description": "{{4.productData.Description}}",
+        "price": "{{formatNumber(5.subtotal; 2; '.'; ',')}}",
+        "vat": "{{4.productData.VAT}}",
+        "vatAmount": "{{formatNumber(6.vatAmount; 2; '.'; ',')}}",
+        "total": "{{formatNumber(7.lineTotal; 2; '.'; ',')}}",
+        "currency": "{{4.productData.Currency}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "feeder": {
+              "label": "Iterator [3]"
+            }
+          }
+        },
+        "expect": [
+          {
+            "name": "productName",
+            "type": "text",
+            "label": "Product Name"
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "price",
+            "type": "text",
+            "label": "Price (formatted)"
+          },
+          {
+            "name": "vat",
+            "type": "number",
+            "label": "VAT %"
+          },
+          {
+            "name": "vatAmount",
+            "type": "text",
+            "label": "VAT Amount (formatted)"
+          },
+          {
+            "name": "total",
+            "type": "text",
+            "label": "Total (formatted)"
+          },
+          {
+            "name": "currency",
+            "type": "text",
+            "label": "Currency"
+          }
+        ],
+        "interface": [
+          {
+            "name": "__BUNDLE__",
+            "type": "array",
+            "label": "Array of bundles"
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "module": "util:SetVariable2",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "grandTotal",
+        "scope": "roundtrip",
+        "value": "{{sum(map(8.__BUNDLE__; parseNumber(total; '.'; ',')); )}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2400,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 10,
+      "module": "util:SetVariable2",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "proposalDate",
+        "scope": "roundtrip",
+        "value": "{{formatDate(now; 'DD/MM/YYYY')}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2700,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 11,
+      "module": "util:SetVariable2",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "proposalNumber",
+        "scope": "roundtrip",
+        "value": "{{formatDate(now; 'YYYYMMDD')}}-{{substring(1.email; 0; 3)}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 3000,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 12,
+      "module": "google-docs:createDocumentFromTemplate",
+      "version": 2,
+      "parameters": {
+        "__IMTCONN__": "{{CONNECTION.GOOGLE_DOCS}}"
+      },
+      "mapper": {
+        "drive": "{{GOOGLE_DRIVE_ID}}",
+        "folder": "{{PROPOSALS_FOLDER_ID}}",
+        "templateId": "{{TEMPLATE_DOC_ID}}",
+        "name": "Proposal - {{1.company}} - {{11.proposalNumber}}",
+        "requests": [
+          {
+            "key": "customer_name",
+            "value": "{{1.name}}"
+          },
+          {
+            "key": "customer_email",
+            "value": "{{1.email}}"
+          },
+          {
+            "key": "company_name",
+            "value": "{{1.company}}"
+          },
+          {
+            "key": "customer_phone",
+            "value": "{{1.phone}}"
+          },
+          {
+            "key": "proposal_number",
+            "value": "{{11.proposalNumber}}"
+          },
+          {
+            "key": "proposal_date",
+            "value": "{{10.proposalDate}}"
+          },
+          {
+            "key": "products_table",
+            "value": "{{join(map(8.__BUNDLE__; productName + ' - ' + description + ' | ' + currency + ' ' + price + ' | ' + vat + '% | ' + currency + ' ' + vatAmount + ' | ' + currency + ' ' + total); newline)}}"
+          },
+          {
+            "key": "grand_total",
+            "value": "{{first(8.__BUNDLE__).currency}} {{formatNumber(9.grandTotal; 2; '.'; ',')}}"
+          },
+          {
+            "key": "currency",
+            "value": "{{first(8.__BUNDLE__).currency}}"
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 3300,
+          "y": 0
+        },
+        "restore": {},
+        "expect": [
+          {
+            "name": "drive",
+            "type": "select",
+            "label": "Choose a Drive",
+            "required": true
+          },
+          {
+            "name": "folder",
+            "type": "folder",
+            "label": "Folder",
+            "required": true
+          },
+          {
+            "name": "templateId",
+            "type": "file",
+            "label": "Template Document ID",
+            "required": true
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Document Name",
+            "required": true
+          },
+          {
+            "name": "requests",
+            "type": "array",
+            "label": "Replacements",
+            "spec": [
+              {
+                "name": "key",
+                "type": "text",
+                "label": "Placeholder"
+              },
+              {
+                "name": "value",
+                "type": "text",
+                "label": "Replacement Value"
+              }
+            ]
+          }
+        ],
+        "interface": [
+          {
+            "name": "documentId",
+            "type": "text",
+            "label": "Document ID"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Document Name"
+          },
+          {
+            "name": "url",
+            "type": "url",
+            "label": "Document URL"
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "module": "google-drive:exportFile",
+      "version": 2,
+      "parameters": {
+        "__IMTCONN__": "{{CONNECTION.GOOGLE_DRIVE}}"
+      },
+      "mapper": {
+        "fileId": "{{12.documentId}}",
+        "type": "pdf"
+      },
+      "metadata": {
+        "designer": {
+          "x": 3600,
+          "y": 0
+        },
+        "restore": {},
+        "expect": [
+          {
+            "name": "fileId",
+            "type": "text",
+            "label": "File ID",
+            "required": true
+          },
+          {
+            "name": "type",
+            "type": "select",
+            "label": "Export Format",
+            "required": true,
+            "validate": {
+              "enum": ["pdf", "docx", "txt", "html", "epub", "odt"]
+            }
+          }
+        ],
+        "interface": [
+          {
+            "name": "data",
+            "type": "buffer",
+            "label": "Data"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "label": "File name"
+          }
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "module": "google-email:ActionSendEmail",
+      "version": 5,
+      "parameters": {
+        "__IMTCONN__": "{{CONNECTION.GMAIL}}",
+        "account": "{{YOUR_EMAIL@gmail.com}}"
+      },
+      "mapper": {
+        "to": ["{{1.email}}"],
+        "subject": "Your Custom Notion Proposal - {{11.proposalNumber}}",
+        "html": "<p>Dear {{1.name}},</p><p>Thank you for your interest in our Notion solutions.</p><p>Please find attached your personalized proposal for {{1.company}}.</p><p>The proposal includes detailed pricing for the following products:</p><ul>{{join(map(8.__BUNDLE__; '<li>' + productName + '</li>'); '')}}</ul><p><strong>Total Investment: {{first(8.__BUNDLE__).currency}} {{formatNumber(9.grandTotal; 2; '.'; ',')}}</strong></p><p>If you have any questions or would like to discuss this proposal, please don't hesitate to contact us.</p><p>Best regards,<br>The Notion Team</p>",
+        "attachments": [
+          {
+            "fileName": "Proposal-{{1.company}}-{{11.proposalNumber}}.pdf",
+            "data": "{{13.data}}",
+            "cid": ""
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 3900,
+          "y": 0
+        },
+        "restore": {},
+        "expect": [
+          {
+            "name": "to",
+            "type": "array",
+            "label": "To",
+            "required": true,
+            "spec": {
+              "type": "email"
+            }
+          },
+          {
+            "name": "subject",
+            "type": "text",
+            "label": "Subject",
+            "required": true
+          },
+          {
+            "name": "html",
+            "type": "text",
+            "label": "Content (HTML)"
+          },
+          {
+            "name": "attachments",
+            "type": "array",
+            "label": "Attachments",
+            "spec": [
+              {
+                "name": "fileName",
+                "type": "text",
+                "label": "File name"
+              },
+              {
+                "name": "data",
+                "type": "buffer",
+                "label": "Data"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "module": "gateway:WebhookRespond",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "status": "200",
+        "body": "{{toString(toCollection('success'; true; 'message'; 'Proposal sent successfully'; 'proposalNumber'; 11.proposalNumber))}}",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 4200,
+          "y": 0
+        },
+        "restore": {}
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": false,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "eu1.make.com"
+  },
+  "errorHandlers": [
+    {
+      "scope": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      "handler": {
+        "id": 100,
+        "module": "google-sheets:addRow",
+        "version": 3,
+        "parameters": {
+          "__IMTCONN__": "{{CONNECTION.GOOGLE_SHEETS}}"
+        },
+        "mapper": {
+          "mode": "select",
+          "spreadsheetId": "{{SPREADSHEET_ID}}",
+          "sheetName": "Logs",
+          "includesHeaders": true,
+          "valueInputOption": "USER_ENTERED",
+          "values": {
+            "Timestamp": "{{formatDate(now; 'YYYY-MM-DD HH:mm:ss')}}",
+            "WebhookPayloadID": "{{if(exists(1.email); 1.email; 'N/A')}}",
+            "ErrorMessage": "{{100.message}}",
+            "ModuleName": "{{100.moduleName}}",
+            "CustomerName": "{{if(exists(1.name); 1.name; 'N/A')}}",
+            "CustomerEmail": "{{if(exists(1.email); 1.email; 'N/A')}}"
+          }
+        },
+        "metadata": {
+          "designer": {
+            "x": 2100,
+            "y": 300
+          },
+          "restore": {},
+          "expect": [
+            {
+              "name": "spreadsheetId",
+              "type": "text",
+              "label": "Spreadsheet ID",
+              "required": true
+            },
+            {
+              "name": "sheetName",
+              "type": "text",
+              "label": "Sheet Name (Logs)",
+              "required": true
+            },
+            {
+              "name": "values",
+              "type": "collection",
+              "label": "Log Entry",
+              "spec": [
+                {
+                  "name": "Timestamp",
+                  "type": "text"
+                },
+                {
+                  "name": "WebhookPayloadID",
+                  "type": "text"
+                },
+                {
+                  "name": "ErrorMessage",
+                  "type": "text"
+                },
+                {
+                  "name": "ModuleName",
+                  "type": "text"
+                },
+                {
+                  "name": "CustomerName",
+                  "type": "text"
+                },
+                {
+                  "name": "CustomerEmail",
+                  "type": "text"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "break": {
+        "id": 101,
+        "module": "gateway:WebhookRespond",
+        "version": 1,
+        "parameters": {},
+        "mapper": {
+          "status": "500",
+          "body": "{{toString(toCollection('success'; false; 'error'; 100.message))}}",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "metadata": {
+          "designer": {
+            "x": 2100,
+            "y": 600
+          }
+        }
+      }
+    }
+  ]
+}

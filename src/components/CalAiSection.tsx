@@ -10,8 +10,16 @@ const CalAiSection = () => {
 
   useEffect(() => {
     (async function () {
-      const cal = await getCalApi({"namespace":"30min"});
-      cal("ui", {"hideEventTypeDetails":false,"layout":"month_view"});
+      const cal = await getCalApi({"namespace":"gfags-30min"});
+      cal("ui", {
+        "hideEventTypeDetails": false,
+        "layout": "month_view",
+        "styles": {
+          "branding": {
+            "brandColor": "#000000"
+          }
+        }
+      });
     })();
   }, []);
 
@@ -99,10 +107,13 @@ const CalAiSection = () => {
               {/* Cal.com embed */}
               <div className="h-[600px] w-full">
                 <Cal
-                  namespace="30min"
-                  calLink="itslidating-n7xup3/30min"
-                  style={{width:"100%",height:"100%",overflow:"scroll"}}
-                  config={{"layout":"month_view"}}
+                  namespace="gfags-30min"
+                  calLink="gfags/30min"
+                  style={{width:"100%",height:"100%",overflow:"auto"}}
+                  config={{
+                    "layout":"month_view",
+                    "theme":"light"
+                  }}
                 />
               </div>
 
