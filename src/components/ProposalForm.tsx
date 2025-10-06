@@ -143,7 +143,13 @@ const ProposalForm = () => {
         <CardDescription>{t("proposal.form.subtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form
+          onSubmit={(e) => {
+            console.log("📝 Form onSubmit event triggered");
+            handleSubmit(onSubmit)(e);
+          }}
+          className="space-y-6"
+        >
           {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="name">{t("proposal.form.fields.name")}</Label>
@@ -229,7 +235,12 @@ const ProposalForm = () => {
           </div>
 
           {/* Submit Button */}
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isSubmitting}
+            onClick={() => console.log("🖱️ Button clicked", { selectedProducts, isSubmitting })}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
