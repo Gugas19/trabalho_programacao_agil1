@@ -1,0 +1,6 @@
+Product,Description,Price,VAT,Currency
+notion-plus,Notion Plus subscription for small teams (up to 10 users),80,23,EUR
+notion-business,Notion Business for growing companies with advanced features,150,23,EUR
+notion-enterprise,Notion Enterprise with premium security and unlimited users,500,23,EUR
+consulting,One-time Notion setup and consulting service (8 hours),600,23,EUR
+training,Team training and onboarding program (full day),800,0,EUR
