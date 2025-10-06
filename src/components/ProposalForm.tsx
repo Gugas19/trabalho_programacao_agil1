@@ -39,6 +39,8 @@ const ProposalForm = () => {
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
+    trigger,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -48,28 +50,53 @@ const ProposalForm = () => {
 
   const handleProductToggle = (productId: string) => {
     setSelectedProducts((prev) => {
-      if (prev.includes(productId)) {
-        return prev.filter((id) => id !== productId);
-      }
-      return [...prev, productId];
+      const newProducts = prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId];
+
+      // Update form value
+      setValue('products', newProducts);
+      // Trigger validation
+      trigger('products');
+
+      return newProducts;
     });
   };
 
   const onSubmit = async (data: FormData) => {
-    // Merge selected products into form data
+    console.log("🚀 Form submit triggered", { data, selectedProducts });
+
+    // Check if products are selected
+    if (selectedProducts.length === 0) {
+      console.warn("⚠️ No products selected");
+      toast.error(t("proposal.form.error.title"), {
+        description: t("proposal.form.validation.products"),
+      });
+      return;
+    }
+
     const formDataWithProducts = {
       ...data,
       products: selectedProducts,
     };
+
+    console.log("📦 Sending data:", formDataWithProducts);
 
     setIsSubmitting(true);
 
     try {
       const webhookUrl = import.meta.env.VITE_MAKE_WEBHOOK_URL;
 
+      console.log("🔗 Webhook URL:", webhookUrl ? "Configured ✓" : "Not configured ✗");
+
       if (!webhookUrl) {
+        toast.error("Configuração Pendente", {
+          description: "O webhook do Make.com ainda não foi configurado. Verifique o ficheiro .env.local",
+        });
         throw new Error("Webhook URL not configured");
       }
+
+      console.log("📡 Sending POST request to webhook...");
 
       const response = await fetch(webhookUrl, {
         method: "POST",
@@ -79,9 +106,16 @@ const ProposalForm = () => {
         body: JSON.stringify(formDataWithProducts),
       });
 
+      console.log("📨 Response status:", response.status);
+
       if (!response.ok) {
-        throw new Error("Failed to submit proposal request");
+        const errorText = await response.text();
+        console.error("❌ Response error:", errorText);
+        throw new Error(`Failed to submit proposal request: ${response.status}`);
       }
+
+      const responseData = await response.json();
+      console.log("✅ Success response:", responseData);
 
       toast.success(t("proposal.form.success.title"), {
         description: t("proposal.form.success.description"),
@@ -90,13 +124,15 @@ const ProposalForm = () => {
       // Reset form
       reset();
       setSelectedProducts([]);
+      setValue('products', []);
     } catch (error) {
-      console.error("Error submitting proposal:", error);
+      console.error("❌ Error submitting proposal:", error);
       toast.error(t("proposal.form.error.title"), {
         description: t("proposal.form.error.description"),
       });
     } finally {
       setIsSubmitting(false);
+      console.log("🏁 Form submission completed");
     }
   };
 
