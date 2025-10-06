@@ -114,8 +114,22 @@ const ProposalForm = () => {
         throw new Error(`Failed to submit proposal request: ${response.status}`);
       }
 
-      const responseData = await response.json();
-      console.log("✅ Success response:", responseData);
+      // Try to parse JSON, but accept plain text responses too
+      let responseData;
+      try {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          responseData = await response.json();
+        } else {
+          const textResponse = await response.text();
+          console.log("📄 Plain text response:", textResponse);
+          responseData = { message: textResponse, success: true };
+        }
+        console.log("✅ Success response:", responseData);
+      } catch (parseError) {
+        console.warn("⚠️ Could not parse response, but request was successful");
+        responseData = { success: true };
+      }
 
       toast.success(t("proposal.form.success.title"), {
         description: t("proposal.form.success.description"),
