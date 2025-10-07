@@ -1,12 +1,9 @@
 services:
   - type: web
     name: trabalho-programacao-agil1
-    env: node
-    rootDirectory: .
+    env: static
     buildCommand: npm install && npm run build
-    startCommand: npm start
+    staticPublishPath: ./dist
     envVars:
-      - key: NODE_VERSION
-        value: 18
       - key: VITE_MAKE_WEBHOOK_URL
         sync: false
