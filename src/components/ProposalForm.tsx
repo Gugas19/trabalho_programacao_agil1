@@ -115,20 +115,13 @@ const ProposalForm = () => {
     setIsSubmitting(true);
 
     try {
-      const webhookUrl = import.meta.env.VITE_MAKE_WEBHOOK_URL;
+      // Use proxy API endpoint to avoid CORS issues
+      const apiEndpoint = import.meta.env.VITE_API_ENDPOINT || '/api/webhook';
 
-      console.log("🔗 Webhook URL:", webhookUrl ? "Configured ✓" : "Not configured ✗");
+      console.log("🔗 API Endpoint:", apiEndpoint);
+      console.log("📡 Sending POST request to API...");
 
-      if (!webhookUrl) {
-        toast.error("Configuração Pendente", {
-          description: "O webhook do Make.com ainda não foi configurado. Verifique o ficheiro .env.local",
-        });
-        throw new Error("Webhook URL not configured");
-      }
-
-      console.log("📡 Sending POST request to webhook...");
-
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
