@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
@@ -16,7 +17,8 @@ const formSchema = z.object({
   email: z.string().email("proposal.form.validation.email"),
   company: z.string().min(2, "proposal.form.validation.company"),
   phone: z.string().min(9, "proposal.form.validation.phone"),
-  products: z.array(z.string()).min(1, "proposal.form.validation.products"),
+  products: z.string().min(1, "proposal.form.validation.products"),
+  description: z.string().min(10, "proposal.form.validation.description"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -32,7 +34,7 @@ const AVAILABLE_PRODUCTS = [
 const ProposalForm = () => {
   const { t } = useLanguage();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<string>("");
 
   const {
     register,
@@ -44,43 +46,71 @@ const ProposalForm = () => {
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      products: [],
+      products: "",
     },
   });
 
-  const handleProductToggle = (productId: string) => {
-    setSelectedProducts((prev) => {
-      const newProducts = prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId];
-
-      // Update form value
-      setValue('products', newProducts);
-      // Trigger validation
-      trigger('products');
-
-      return newProducts;
-    });
+  const handleProductSelect = (productId: string) => {
+    setSelectedProduct(productId);
+    setValue('products', productId);
+    trigger('products');
   };
 
-  const onSubmit = async (data: FormData) => {
-    console.log("🚀 Form submit triggered", { data, selectedProducts });
+  // Detect autofill and update form state
+  useEffect(() => {
+    const handleAutofill = () => {
+      const form = document.querySelector('form');
+      if (!form) return;
 
-    // Check if products are selected
-    if (selectedProducts.length === 0) {
-      console.warn("⚠️ No products selected");
+      const inputs = form.querySelectorAll('input, textarea');
+      inputs.forEach((input) => {
+        if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+          const name = input.name;
+          const value = input.value;
+          if (value && name) {
+            setValue(name as keyof FormData, value, { shouldValidate: true });
+          }
+        }
+      });
+    };
+
+    // Check for autofill after multiple delays to catch browser autofill
+    const timers = [
+      setTimeout(handleAutofill, 100),
+      setTimeout(handleAutofill, 500),
+      setTimeout(handleAutofill, 1000),
+    ];
+
+    // Listen for various events that might indicate autofill
+    const form = document.querySelector('form');
+    const events = ['change', 'input', 'blur'];
+
+    events.forEach(event => {
+      form?.addEventListener(event, handleAutofill);
+    });
+
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+      events.forEach(event => {
+        form?.removeEventListener(event, handleAutofill);
+      });
+    };
+  }, [setValue]);
+
+  const onSubmit = async (data: FormData) => {
+    console.log("🚀 Form submit triggered", { data, selectedProduct });
+
+    // Check if product is selected
+    if (!selectedProduct) {
+      console.warn("⚠️ No product selected");
       toast.error(t("proposal.form.error.title"), {
         description: t("proposal.form.validation.products"),
       });
       return;
     }
 
-    const formDataWithProducts = {
-      ...data,
-      products: selectedProducts,
-    };
-
-    console.log("📦 Sending data:", formDataWithProducts);
+    console.log("📦 Sending data:", data);
+    console.log("📦 JSON stringified:", JSON.stringify(data, null, 2));
 
     setIsSubmitting(true);
 
@@ -103,7 +133,7 @@ const ProposalForm = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formDataWithProducts),
+        body: JSON.stringify(data),
       });
 
       console.log("📨 Response status:", response.status);
@@ -137,8 +167,8 @@ const ProposalForm = () => {
 
       // Reset form
       reset();
-      setSelectedProducts([]);
-      setValue('products', []);
+      setSelectedProduct("");
+      setValue('products', "");
     } catch (error) {
       console.error("❌ Error submitting proposal:", error);
       toast.error(t("proposal.form.error.title"), {
@@ -225,15 +255,14 @@ const ProposalForm = () => {
           {/* Products */}
           <div className="space-y-3">
             <Label>{t("proposal.form.fields.products")}</Label>
-            <div className="space-y-3">
+            <RadioGroup
+              value={selectedProduct}
+              onValueChange={handleProductSelect}
+              disabled={isSubmitting}
+            >
               {AVAILABLE_PRODUCTS.map((product) => (
                 <div key={product.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={product.id}
-                    checked={selectedProducts.includes(product.id)}
-                    onCheckedChange={() => handleProductToggle(product.id)}
-                    disabled={isSubmitting}
-                  />
+                  <RadioGroupItem value={product.id} id={product.id} />
                   <label
                     htmlFor={product.id}
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
@@ -242,9 +271,24 @@ const ProposalForm = () => {
                   </label>
                 </div>
               ))}
-            </div>
-            {selectedProducts.length === 0 && errors.products && (
+            </RadioGroup>
+            {!selectedProduct && errors.products && (
               <p className="text-sm text-destructive">{t(errors.products.message || "")}</p>
+            )}
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">{t("proposal.form.fields.description")}</Label>
+            <Textarea
+              id="description"
+              {...register("description")}
+              placeholder={t("proposal.form.placeholders.description")}
+              disabled={isSubmitting}
+              rows={4}
+            />
+            {errors.description && (
+              <p className="text-sm text-destructive">{t(errors.description.message || "")}</p>
             )}
           </div>
 
@@ -253,7 +297,7 @@ const ProposalForm = () => {
             type="submit"
             className="w-full"
             disabled={isSubmitting}
-            onClick={() => console.log("🖱️ Button clicked", { selectedProducts, isSubmitting })}
+            onClick={() => console.log("🖱️ Button clicked", { selectedProduct, isSubmitting })}
           >
             {isSubmitting ? (
               <>
